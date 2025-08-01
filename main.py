@@ -1,21 +1,16 @@
 import pandas as pd
 import numpy as np
 import re
-
+from sklearn.feature_extraction.text import CountVectorizer, TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC
 from sklearn.metrics import classification_report, accuracy_score, confusion_matrix, f1_score
-from sklearn.feature_extraction.text import TfidfVectorizer
 
 # Load dataset
 df = pd.read_json("News_Category_Dataset_v3.json", lines=True)
-
-# Keep necessary columns
-df = df[['headline', 'short_description', 'category']]
-df.dropna(inplace=True)
-df.drop_duplicates(inplace=True)
+df = df[['headline', 'short_description', 'category']].dropna().drop_duplicates()
 
 # Preprocess text
 def pretext(text):
@@ -28,38 +23,46 @@ def pretext(text):
 df['headline'] = df['headline'].apply(pretext)
 df['short_description'] = df['short_description'].apply(pretext)
 
-# Combine text fields
-df['text'] = df['headline'] + ' ' + df['short_description']
-
 # Encode labels
 label_encoder = LabelEncoder()
 df['label'] = label_encoder.fit_transform(df['category'])
 
-# Vectorize using TF-IDF
-vectorizer = TfidfVectorizer(max_features=5000)
-X = vectorizer.fit_transform(df['text'])
+# Combine text fields
+df['combined_text'] = df['headline'] + " " + df['short_description']
 
-# Labels
+# === Vectorization Choice ===
+print("Select vectorization method:")
+print("1 - TF-IDF")
+print("2 - Bag of Words (BoW)")
+
+vec_choice = input("Enter your choice (1 or 2): ")
+
+if vec_choice == "1":
+    print("\nUsing TF-IDF vectorizer...")
+    vectorizer = TfidfVectorizer(max_features=5000)
+elif vec_choice == "2":
+    print("\nUsing Bag of Words (CountVectorizer)...")
+    vectorizer = CountVectorizer(max_features=5000)
+else:
+    raise ValueError("Invalid choice. Enter 1 or 2.")
+
+X = vectorizer.fit_transform(df['combined_text']).toarray()
 y = df['label'].values
 
 # Train/test split
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-# Show class distribution (optional)
-print("\nClass distribution:")
-print(df['label'].value_counts())
-
-# === Model selection ===
-print("\nWhich model would you like to train?")
+# === Model Choice ===
+print("\nSelect classifier:")
 print("1 - Support Vector Machine (SVM)")
 print("2 - Random Forest")
 
-choice = input("Enter your choice (1 or 2): ")
+model_choice = input("Enter your choice (1 or 2): ")
 
-if choice == "1":
+if model_choice == "1":
     print("\nTraining Linear SVM with class_weight='balanced'...")
     model = LinearSVC(class_weight='balanced')
-elif choice == "2":
+elif model_choice == "2":
     print("\nTraining Random Forest...")
     model = RandomForestClassifier(n_estimators=100, random_state=42)
 else:
@@ -69,7 +72,7 @@ else:
 model.fit(X_train, y_train)
 print("\nModel trained successfully!")
 
-# Predict and evaluate
+# Evaluation
 y_pred = model.predict(X_test)
 
 print("\nAccuracy:", accuracy_score(y_test, y_pred))
